@@ -1,4 +1,5 @@
-import requests
+#import requests
+import urllib3
 from functools import wraps
 
 
@@ -10,7 +11,7 @@ def http_connection(timeout):
     def wrapper(f):
         def wrapped(*args, **kwargs):
             if not ('connection' in kwargs) or not kwargs['connection']:
-                connection = requests.Session()
+                connection = None
                 kwargs['connection'] = connection
             else:
                 connection = kwargs['connection']

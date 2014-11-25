@@ -5,64 +5,35 @@ except ImportError:
     from urllib import parse as urlparse
 
 import json
+import urllib3
 
 from .firebase_token_generator import FirebaseTokenGenerator
 from .decorators import http_connection
 
-from .async import process_pool
+from .async import AsyncLoader
 from .jsonutil import JSONEncoder
 
 __all__ = ['FirebaseAuthentication', 'FirebaseApplication']
 
 
-@http_connection(60)
-def make_get_request(url, params, headers, connection):
-    """
-    Helper function that makes an HTTP GET request to the given firebase
-    endpoint. Timeout is 60 seconds.
-    `url`: The full URL of the firebase endpoint (DSN appended.)
-    `params`: Python dict that is appended to the URL like a querystring.
-    `headers`: Python dict. HTTP request headers.
-    `connection`: Predefined HTTP connection instance. If not given, it
-    is supplied by the `decorators.http_connection` function.
+def make_get_request(url, params, headers):
+    http = urllib3.PoolManager()
+    
+    pipr = http.request('GET', url, headers)
+    
+    return r.data
 
-    The returning value is a Python dict deserialized by the JSON decoder. However,
-    if the status code is not 2x or 403, an requests.HTTPError is raised.
-
-    connection = connection_pool.get_available_connection()
-    response = make_get_request('http://firebase.localhost/users', {'print': silent'},
-                                {'X_FIREBASE_SOMETHING': 'Hi'}, connection)
-    response => {'1': 'John Doe', '2': 'Jane Doe'}
-    """
-    timeout = getattr(connection, 'timeout')
-    response = connection.get(url, params=params, headers=headers, timeout=timeout)
-    if response.ok or response.status_code == 403:
-        return response.json() if response.content else None
-    else:
-        response.raise_for_status()
+    #timeout = getattr(connection, 'timeout')
+    #response = connection.get(url, params=params, headers=headers, timeout=timeout)
+    #if response.ok or response.status_code == 403:
+    #    return response.json() if response.content else None
+    #else:
+    #    response.raise_for_status()
 
 
 @http_connection(60)
 def make_put_request(url, data, params, headers, connection):
-    """
-    Helper function that makes an HTTP PUT request to the given firebase
-    endpoint. Timeout is 60 seconds.
-    `url`: The full URL of the firebase endpoint (DSN appended.)
-    `data`: JSON serializable dict that will be stored in the remote storage.
-    `params`: Python dict that is appended to the URL like a querystring.
-    `headers`: Python dict. HTTP request headers.
-    `connection`: Predefined HTTP connection instance. If not given, it
-    is supplied by the `decorators.http_connection` function.
 
-    The returning value is a Python dict deserialized by the JSON decoder. However,
-    if the status code is not 2x or 403, an requests.HTTPError is raised.
-
-    connection = connection_pool.get_available_connection()
-    response = make_put_request('http://firebase.localhost/users',
-                                '{"1": "Ozgur Vatansever"}',
-                                {'X_FIREBASE_SOMETHING': 'Hi'}, connection)
-    response => {'1': 'Ozgur Vatansever'} or {'error': 'Permission denied.'}
-    """
     timeout = getattr(connection, 'timeout')
     response = connection.put(url, data=data, params=params, headers=headers,
                               timeout=timeout)
@@ -74,24 +45,7 @@ def make_put_request(url, data, params, headers, connection):
 
 @http_connection(60)
 def make_post_request(url, data, params, headers, connection):
-    """
-    Helper function that makes an HTTP POST request to the given firebase
-    endpoint. Timeout is 60 seconds.
-    `url`: The full URL of the firebase endpoint (DSN appended.)
-    `data`: JSON serializable dict that will be stored in the remote storage.
-    `params`: Python dict that is appended to the URL like a querystring.
-    `headers`: Python dict. HTTP request headers.
-    `connection`: Predefined HTTP connection instance. If not given, it
-    is supplied by the `decorators.http_connection` function.
-
-    The returning value is a Python dict deserialized by the JSON decoder. However,
-    if the status code is not 2x or 403, an requests.HTTPError is raised.
-
-    connection = connection_pool.get_available_connection()
-    response = make_put_request('http://firebase.localhost/users/',
-       '{"Ozgur Vatansever"}', {'X_FIREBASE_SOMETHING': 'Hi'}, connection)
-    response => {u'name': u'-Inw6zol_2f5ThHwVcSe'} or {'error': 'Permission denied.'}
-    """
+   
     timeout = getattr(connection, 'timeout')
     response = connection.post(url, data=data, params=params, headers=headers,
                                timeout=timeout)
@@ -103,24 +57,7 @@ def make_post_request(url, data, params, headers, connection):
 
 @http_connection(60)
 def make_patch_request(url, data, params, headers, connection):
-    """
-    Helper function that makes an HTTP PATCH request to the given firebase
-    endpoint. Timeout is 60 seconds.
-    `url`: The full URL of the firebase endpoint (DSN appended.)
-    `data`: JSON serializable dict that will be stored in the remote storage.
-    `params`: Python dict that is appended to the URL like a querystring.
-    `headers`: Python dict. HTTP request headers.
-    `connection`: Predefined HTTP connection instance. If not given, it
-    is supplied by the `decorators.http_connection` function.
-
-    The returning value is a Python dict deserialized by the JSON decoder. However,
-    if the status code is not 2x or 403, an requests.HTTPError is raised.
-
-    connection = connection_pool.get_available_connection()
-    response = make_put_request('http://firebase.localhost/users/1',
-       '{"Ozgur Vatansever"}', {'X_FIREBASE_SOMETHING': 'Hi'}, connection)
-    response => {'Ozgur Vatansever'} or {'error': 'Permission denied.'}
-    """
+   
     timeout = getattr(connection, 'timeout')
     response = connection.patch(url, data=data, params=params, headers=headers,
                                 timeout=timeout)
@@ -132,23 +69,7 @@ def make_patch_request(url, data, params, headers, connection):
 
 @http_connection(60)
 def make_delete_request(url, params, headers, connection):
-    """
-    Helper function that makes an HTTP DELETE request to the given firebase
-    endpoint. Timeout is 60 seconds.
-    `url`: The full URL of the firebase endpoint (DSN appended.)
-    `params`: Python dict that is appended to the URL like a querystring.
-    `headers`: Python dict. HTTP request headers.
-    `connection`: Predefined HTTP connection instance. If not given, it
-    is supplied by the `decorators.http_connection` function.
-
-    The returning value is NULL. However, if the status code is not 2x or 403,
-    an requests.HTTPError is raised.
-
-    connection = connection_pool.get_available_connection()
-    response = make_put_request('http://firebase.localhost/users/1',
-                                {'X_FIREBASE_SOMETHING': 'Hi'}, connection)
-    response => NULL or {'error': 'Permission denied.'}
-    """
+    
     timeout = getattr(connection, 'timeout')
     response = connection.delete(url, params=params, headers=headers, timeout=timeout)
     if response.ok or response.status_code == 403:
@@ -258,11 +179,11 @@ class FirebaseApplication(object):
         """
         if self.authentication:
             user = self.authentication.get_user()
-            params.update({'auth': user.firebase_auth_token})
+            headers.update({'auth': user.firebase_auth_token})
             headers.update(self.authentication.authenticator.HEADERS)
+            headers.update({'Content-type': 'application/json'})
 
-    @http_connection(60)
-    def get(self, url, name, params=None, headers=None, connection=None):
+    def get(self, url, name, params=None, headers=None):
         """
         Synchronous GET request.
         """
@@ -271,7 +192,7 @@ class FirebaseApplication(object):
         headers = headers or {}
         endpoint = self._build_endpoint_url(url, name)
         self._authenticate(params, headers)
-        return make_get_request(endpoint, params, headers, connection=connection)
+        return make_get_request(endpoint, params, headers,)
 
     def get_async(self, url, name, callback=None, params=None, headers=None):
         """
@@ -282,8 +203,9 @@ class FirebaseApplication(object):
         headers = headers or {}
         endpoint = self._build_endpoint_url(url, name)
         self._authenticate(params, headers)
-        process_pool.apply_async(make_get_request,
-            args=(endpoint, params, headers), callback=callback)
+        AsyncLoader(make_get_request,
+                    args=(endpoint, params, headers),
+                    callback=callback).start()
 
     @http_connection(60)
     def put(self, url, name, data, params=None, headers=None, connection=None):
@@ -311,9 +233,9 @@ class FirebaseApplication(object):
         endpoint = self._build_endpoint_url(url, name)
         self._authenticate(params, headers)
         data = json.dumps(data, cls=JSONEncoder)
-        process_pool.apply_async(make_put_request,
-                                 args=(endpoint, data, params, headers),
-                                 callback=callback)
+        AsyncLoader(make_put_request,
+                    args=(endpoint, data, params, headers),
+                    callback=callback).start()
 
     @http_connection(60)
     def post(self, url, data, params=None, headers=None, connection=None):
@@ -337,9 +259,9 @@ class FirebaseApplication(object):
         endpoint = self._build_endpoint_url(url, None)
         self._authenticate(params, headers)
         data = json.dumps(data, cls=JSONEncoder)
-        process_pool.apply_async(make_post_request,
-                                 args=(endpoint, data, params, headers),
-                                 callback=callback)
+        AsyncLoader(make_post_request,
+                    args=(endpoint, data, params, headers),
+                    callback=callback).start()
 
     @http_connection(60)
     def patch(self, url, data, params=None, headers=None, connection=None):
@@ -363,9 +285,9 @@ class FirebaseApplication(object):
         endpoint = self._build_endpoint_url(url, None)
         self._authenticate(params, headers)
         data = json.dumps(data, cls=JSONEncoder)
-        process_pool.apply_async(make_patch_request,
-                                 args=(endpoint, data, params, headers),
-                                 callback=callback)
+        AsyncLoader(make_patch_request,
+                    args=(endpoint, data, params, headers),
+                    callback=callback).start()
 
     @http_connection(60)
     def delete(self, url, name, params=None, headers=None, connection=None):
@@ -388,5 +310,7 @@ class FirebaseApplication(object):
         headers = headers or {}
         endpoint = self._build_endpoint_url(url, name)
         self._authenticate(params, headers)
-        process_pool.apply_async(make_delete_request,
-                    args=(endpoint, params, headers), callback=callback)
+        AsyncLoader(make_delete_request,
+                    args=(endpoint, params, headers),
+                    callback=callback).start()
+

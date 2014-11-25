@@ -34,6 +34,6 @@ setup(name='python-firebase',
       license='MIT',
       packages=['firebase'],
       test_suite='tests.all_tests',
-      install_requires=['requests>=1.1.0'],
+      install_requires=['urllib3==1.9.1'],
       zip_safe=False,
 )
